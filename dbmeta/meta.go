@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/jimsmart/schema"
+	"github.com/serenize/snaker"
 )
 
 type ModelInfo struct {
@@ -83,9 +85,7 @@ const (
 	gureguNullTime   = "null.Time"
 	golangTime       = "time.Time"
 	golangBool       = "bool"
-
 )
-
 
 // GenerateStruct generates a struct for the given table.
 func GenerateStruct(db *sql.DB, tableName string, structName string, pkgName string, jsonAnnotation bool, gormAnnotation bool, gureguTypes bool) *ModelInfo {
@@ -131,7 +131,7 @@ func generateFieldsTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonA
 
 		}
 		if jsonAnnotation == true {
-			annotations = append(annotations, fmt.Sprintf("json:\"%s\"", key))
+			annotations = append(annotations, fmt.Sprintf("json:\"%s\"", toJSONAnnotation(key)))
 		}
 		if len(annotations) > 0 {
 			field = fmt.Sprintf("%s %s `%s`",
@@ -148,6 +148,19 @@ func generateFieldsTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonA
 		fields = append(fields, field)
 	}
 	return fields
+}
+
+func toJSONAnnotation(s string) string {
+	s = snaker.SnakeToCamel(s)
+	if s == "Gid" {
+		s = "GID"
+	}
+	r := []rune(s)
+	if len(r) < 2 || unicode.IsUpper(r[1]) {
+		return s
+	}
+	r[0] = unicode.ToLower(r[0])
+	return string(r)
 }
 
 func generateMapTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonAnnotation bool, gormAnnotation bool, gureguTypes bool) []string {
@@ -175,7 +188,7 @@ func generateMapTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonAnno
 
 		}
 		if jsonAnnotation == true {
-			annotations = append(annotations, fmt.Sprintf("json:\"%s\"", key))
+			annotations = append(annotations, fmt.Sprintf("json:\"%s\"", toJSONAnnotation(key)))
 		}
 		if len(annotations) > 0 {
 			field = fmt.Sprintf("%s %s `%s`",
@@ -196,7 +209,7 @@ func generateMapTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonAnno
 
 func sqlTypeToGoType(mysqlType string, nullable bool, gureguTypes bool) string {
 	switch mysqlType {
-	case "tinyint", "int", "smallint", "mediumint", "int4", "int2":
+	case "tinyint", "int", "smallint", "mediumint", "int4", "int2", "integer", "money":
 		if nullable {
 			if gureguTypes {
 				return gureguNullInt
@@ -204,7 +217,7 @@ func sqlTypeToGoType(mysqlType string, nullable bool, gureguTypes bool) string {
 			return sqlNullInt
 		}
 		return golangInt
-	case "bigint","int8":
+	case "bigint", "int8", "serial", "bigserial":
 		if nullable {
 			if gureguTypes {
 				return gureguNullInt
@@ -212,7 +225,7 @@ func sqlTypeToGoType(mysqlType string, nullable bool, gureguTypes bool) string {
 			return sqlNullInt
 		}
 		return golangInt64
-	case "char", "enum", "varchar", "longtext", "mediumtext", "text", "tinytext","varchar2","json","jsonb", "nvarchar":
+	case "char", "enum", "varchar", "character", "character varying", "longtext", "mediumtext", "text", "tinytext", "varchar2", "json", "jsonb", "nvarchar":
 		if nullable {
 			if gureguTypes {
 				return gureguNullString
@@ -225,7 +238,7 @@ func sqlTypeToGoType(mysqlType string, nullable bool, gureguTypes bool) string {
 			return gureguNullTime
 		}
 		return golangTime
-	case "decimal", "double":
+	case "decimal", "double", "double precision", "real", "numeric":
 		if nullable {
 			if gureguTypes {
 				return gureguNullFloat
@@ -249,4 +262,3 @@ func sqlTypeToGoType(mysqlType string, nullable bool, gureguTypes bool) string {
 
 	return ""
 }
-
