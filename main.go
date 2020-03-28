@@ -24,14 +24,15 @@ import (
 )
 
 var (
-	sqlType     = goopt.String([]string{"--sqltype"}, "mysql", "sql database type such as mysql, postgres, etc.")
-	sqlConnStr  = goopt.String([]string{"-c", "--connstr"}, "nil", "database connection string")
+	sqlType     = goopt.String([]string{"--sqltype"}, "mysql", "SQL database type such as mysql, postgres, etc.")
+	sqlConnStr  = goopt.String([]string{"-c", "--connstr"}, "nil", "Database connection string as \"user:password@/dbname\" or \"host=localhost port=5432 dbname=X user=X password=X\" for postgres)")
 	sqlDatabase = goopt.String([]string{"-d", "--database"}, "nil", "Database to for connection")
 	sqlTable    = goopt.String([]string{"-t", "--table"}, "", "Table to build struct from")
 
-	packageName = goopt.String([]string{"--package"}, "model", "name to set for package")
+	packageName = goopt.String([]string{"--package"}, "model", "Name to set for package")
 
 	jsonAnnotation = goopt.Flag([]string{"--json"}, []string{"--no-json"}, "Add json annotations (default)", "Disable json annotations")
+	jsonCamelCase  = goopt.Flag([]string{"--jsoncamel"}, []string{}, "CamelCase json annotations", "")
 	gormAnnotation = goopt.Flag([]string{"--gorm"}, []string{}, "Add gorm annotations (tags)", "")
 	gureguTypes    = goopt.Flag([]string{"--guregu"}, []string{}, "Add guregu null types", "")
 
@@ -54,6 +55,10 @@ func init() {
 }
 
 func main() {
+	if *jsonCamelCase {
+		jsonAnnotation = jsonCamelCase
+	}
+
 	// Username is required
 	if sqlConnStr == nil || *sqlConnStr == "" || *sqlConnStr == "nil" {
 		fmt.Println("sql connection string is required! Add it with --connstr=s")
@@ -119,7 +124,7 @@ func main() {
 		structName = inflection.Singular(structName)
 		structNames = append(structNames, structName)
 
-		modelInfo := dbmeta.GenerateStruct(db, tableName, structName, *packageName, *jsonAnnotation, *gormAnnotation, *gureguTypes)
+		modelInfo := dbmeta.GenerateStruct(db, tableName, structName, *packageName, *jsonAnnotation, *jsonCamelCase, *gormAnnotation, *gureguTypes)
 
 		var buf bytes.Buffer
 		err = t.Execute(&buf, modelInfo)

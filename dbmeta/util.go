@@ -25,7 +25,17 @@ func FmtFieldName(s string) string {
 			runes[i] = '_'
 		}
 	}
-	return string(runes)
+	return upperGidCid(string(runes))
+}
+
+func upperGidCid(s string) string {
+	switch {
+	case strings.HasSuffix(s, "Gid"):
+		s = strings.TrimSuffix(s, "Gid") + "GID"
+	case strings.HasSuffix(s, "Cid"):
+		s = strings.TrimSuffix(s, "Cid") + "CID"
+	}
+	return s
 }
 
 func lintFieldName(name string) string {

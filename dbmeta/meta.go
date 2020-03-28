@@ -7,7 +7,6 @@ import (
 	"unicode"
 
 	"github.com/jimsmart/schema"
-	"github.com/serenize/snaker"
 )
 
 type ModelInfo struct {
@@ -88,11 +87,9 @@ const (
 )
 
 // GenerateStruct generates a struct for the given table.
-func GenerateStruct(db *sql.DB, tableName string, structName string, pkgName string, jsonAnnotation bool, gormAnnotation bool, gureguTypes bool) *ModelInfo {
+func GenerateStruct(db *sql.DB, tableName string, structName string, pkgName string, jsonAnnotation bool, jsonCamelCase bool, gormAnnotation bool, gureguTypes bool) *ModelInfo {
 	cols, _ := schema.Table(db, tableName)
-	fields := generateFieldsTypes(db, cols, 0, jsonAnnotation, gormAnnotation, gureguTypes)
-
-	//fields := generateMysqlTypes(db, columnTypes, 0, jsonAnnotation, gormAnnotation, gureguTypes)
+	fields := generateFieldsTypes(db, cols, 0, jsonAnnotation, jsonCamelCase, gormAnnotation, gureguTypes)
 
 	var modelInfo = &ModelInfo{
 		PackageName:     pkgName,
@@ -106,7 +103,7 @@ func GenerateStruct(db *sql.DB, tableName string, structName string, pkgName str
 }
 
 // Generate fields string
-func generateFieldsTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonAnnotation bool, gormAnnotation bool, gureguTypes bool) []string {
+func generateFieldsTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonAnnotation bool, jsonCamelCase bool, gormAnnotation bool, gureguTypes bool) []string {
 
 	//sort.Strings(keys)
 
@@ -118,6 +115,10 @@ func generateFieldsTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonA
 		valueType := sqlTypeToGoType(strings.ToLower(c.DatabaseTypeName()), nullable, gureguTypes)
 		if valueType == "" { // unknown type
 			continue
+		}
+
+		if valueType == "int" && (key == "id" || key == "uid" || key == "gid" || key == "cid" || strings.HasSuffix(key, "_id") || strings.HasSuffix(key, "_uid") || strings.HasSuffix(key, "_gid") || strings.HasSuffix(key, "_cid")) {
+			valueType = "uint64"
 		}
 		fieldName := FmtFieldName(stringifyFirstChar(key))
 
@@ -131,7 +132,7 @@ func generateFieldsTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonA
 
 		}
 		if jsonAnnotation == true {
-			annotations = append(annotations, fmt.Sprintf("json:\"%s\"", toJSONAnnotation(key)))
+			annotations = append(annotations, fmt.Sprintf("json:\"%s\"", toJSONAnnotation(key, jsonCamelCase)))
 		}
 		if len(annotations) > 0 {
 			field = fmt.Sprintf("%s %s `%s`",
@@ -150,20 +151,18 @@ func generateFieldsTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonA
 	return fields
 }
 
-func toJSONAnnotation(s string) string {
-	s = snaker.SnakeToCamel(s)
-	if s == "Gid" {
-		s = "GID"
-	}
-	r := []rune(s)
-	if len(r) < 2 || unicode.IsUpper(r[1]) {
+func toJSONAnnotation(s string, jsonCamelCase bool) string {
+	if !jsonCamelCase {
 		return s
 	}
-	r[0] = unicode.ToLower(r[0])
+	r := []rune(FmtFieldName(s))
+	if len(r) > 1 && !unicode.IsUpper(r[1]) {
+		r[0] = unicode.ToLower(r[0])
+	}
 	return string(r)
 }
 
-func generateMapTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonAnnotation bool, gormAnnotation bool, gureguTypes bool) []string {
+func generateMapTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonAnnotation bool, jsonCamelCase bool, gormAnnotation bool, gureguTypes bool) []string {
 
 	//sort.Strings(keys)
 
@@ -176,6 +175,10 @@ func generateMapTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonAnno
 		if valueType == "" { // unknown type
 			continue
 		}
+		if valueType == "int" && (key == "id" || key == "uid" || key == "gid" || key == "cid" || strings.HasSuffix(key, "_id") || strings.HasSuffix(key, "_uid") || strings.HasSuffix(key, "_gid") || strings.HasSuffix(key, "_cid")) {
+			valueType = "uint64"
+		}
+
 		fieldName := FmtFieldName(stringifyFirstChar(key))
 
 		var annotations []string
@@ -188,7 +191,7 @@ func generateMapTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonAnno
 
 		}
 		if jsonAnnotation == true {
-			annotations = append(annotations, fmt.Sprintf("json:\"%s\"", toJSONAnnotation(key)))
+			annotations = append(annotations, fmt.Sprintf("json:\"%s\"", toJSONAnnotation(key, jsonCamelCase)))
 		}
 		if len(annotations) > 0 {
 			field = fmt.Sprintf("%s %s `%s`",
