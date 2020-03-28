@@ -152,14 +152,15 @@ func generateFieldsTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonA
 }
 
 func toJSONAnnotation(s string, jsonCamelCase bool) string {
-	if !jsonCamelCase {
+	if !jsonCamelCase || !strings.ContainsRune(s, '_') {
 		return s
 	}
 	r := []rune(FmtFieldName(s))
 	if len(r) > 1 && !unicode.IsUpper(r[1]) {
 		r[0] = unicode.ToLower(r[0])
+		s = string(r)
 	}
-	return string(r)
+	return s
 }
 
 func generateMapTypes(db *sql.DB, columns []*sql.ColumnType, depth int, jsonAnnotation bool, jsonCamelCase bool, gormAnnotation bool, gureguTypes bool) []string {
